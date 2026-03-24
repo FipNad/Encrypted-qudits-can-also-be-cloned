@@ -40,6 +40,18 @@ class QuditGates:
                 H[i][j] = np.exp(2 * np.pi * 1j * i * j / self.dim) / np.sqrt(self.dim)
         return H
 
+    def C_gate(self):
+        """ Returns the C gate, as defined in the paper for the given dimension.
+        """
+        U1 = np.zeros((self.dim**2, self.dim**2), dtype=np.complex128)
+        U2 = np.kron(self.get_I_gate(), np.linalg.matrix_power(self.get_H_gate(), 2))
+        X_sq = np.linalg.matrix_power(self.get_X_gate(), 2)
+        for c in range(self.dim):
+            ket = ket_to_vector(self.dim, c)
+            ketbra = ket @ ket.conj().T
+            U1 += np.kron(np.linalg.matrix_power(X_sq, c),ketbra)
+        return U1 @ U2
+
     def CSUM_gate(self):
         """ Returns the CSUM gate for the given dimension.
             CSUM = C(X_d)
@@ -129,8 +141,6 @@ class QuditGates:
 
         operators_S1 = [op for op in operators]
         operators_labels_S1 = [label for label in operators_labels]
-        operators_S1 = operators_S1[::-1]
-        operators_labels_S1 = operators_labels_S1[::-1]
         
 
         for k in range(self.dim):
@@ -151,6 +161,62 @@ class QuditGates:
 
                 #compute the operator applied to the chosen pair (S, N)
                 op_S =  self.SWAP_gate() @ op_S1_left @ maximally_mixed_matrix @ op_S1_right 
+
+
+                #compute the operator applied to all the remaining N qudits
+                operators_N = []
+                for i in range(N_qudits):
+                    op_N = np.eye(self.dim, dtype=np.complex128)
+                    for idx,operator in enumerate(operators):
+                        if operators_labels[idx] == 'X':
+                            op_N @= np.linalg.matrix_power(operator, k)
+                        if operators_labels[idx] == 'Z':
+                            op_N @= np.linalg.matrix_power(operator, -l)
+                    operators_N.append(op_N)
+                op_N = operators_N[0]
+                for i in range(1, N_qudits):
+                    op_N = np.kron(op_N, operators_N[i])
+                
+                zero_matrix += ckl * np.kron(op_S, op_N)
+
+        return zero_matrix
+    
+
+    def create_Udecryption1(self, number_S_qudits):
+        operators = [self.get_X_gate(), self.get_Z_gate()]
+        operators_labels = ['X', 'Z']
+
+        N_qudits = number_S_qudits - 1 # number of N qudits used in the gate
+        S1_qudits = 1
+        N1_qudits = 1
+        num_qudits = N_qudits + S1_qudits + N1_qudits
+
+        matrix_dim = self.dim ** num_qudits # setting the dimension of the operator matrix
+        zero_matrix = np.zeros((matrix_dim, matrix_dim), dtype=np.complex128) # initializing the operator matrix to zero
+
+        
+        maximally_mixed_matrix = create_ketbra_generalizedBell(self.dim)
+        
+
+        for k in range(self.dim):
+            for l in range(self.dim):
+                ck = np.exp(-1j*np.pi*(k)*(k+self.dim%2)/self.dim)
+                cl = np.exp(-1j*np.pi*(l)*(l+self.dim%2)/self.dim)
+                ckl = (ck * cl)**(-1)
+
+                #compute the operator O_{kl}
+                op_S_left = np.eye(self.dim, dtype=np.complex128)
+                for idx,operator in enumerate(operators):
+                    if operators_labels[idx] == 'X':
+                        op_S_left @= np.linalg.matrix_power(operator, k)
+                    if operators_labels[idx] == 'Z':
+                        op_S_left @= np.linalg.matrix_power(operator, l)
+                op_S1_left = np.kron(op_S_left, np.eye(self.dim, dtype=np.complex128))
+                op_S1_right = op_S1_left.conj().T
+
+                #compute the operator applied to the chosen pair (S, N)
+                C = self.C_gate()
+                op_S =  self.SWAP_gate() @ C @ op_S1_left @ maximally_mixed_matrix @ op_S1_right 
 
 
                 #compute the operator applied to all the remaining N qudits

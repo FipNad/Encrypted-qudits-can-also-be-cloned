@@ -7,6 +7,15 @@ def vector_to_ket(vector):
     """
     return vector.reshape(-1, 1)
 
+def ket_to_vector(dimension, value:int):
+        """ Converts a ket value to a vector representation. 
+        For example, for dimension 3, the ket |1> would be represented as [0, 1, 0]^T.
+        """
+        vector = np.zeros((dimension,1))
+        vector[value][0] = 1
+
+        return vector
+
 def print_matrix(matrix):
     for row in range(matrix.shape[0]):
         for col in range(matrix.shape[1]):
@@ -23,6 +32,34 @@ def print_matrix(matrix):
                 print(f"{amp.real:.2f}+{amp.imag:.1f}j", end=" ")
             # print(f"{matrix[row][col]:.2f}", end=" ")
         print()
+
+def display_state_abs(state, dimension, num_qudits, threshold=1e-6):
+    """
+    Print the full state vector with amplitudes above threshold
+    """
+    state = state.flatten()
+    for idx, amp in enumerate(state):
+        if np.abs(amp) > threshold:
+            # Convert index to qudit digits
+            digits = np.base_repr(idx, base=dimension).zfill(num_qudits)
+            if amp.real <0 and amp.imag <0:
+                print(f"|{digits}> : {amp.real:.3f}{amp.imag:.4f}j => |{digits}|={np.abs(amp):.4f} => Prob={np.abs(amp)**2:.4f}")
+            elif amp.real <0 and amp.imag >=0:
+                print(f"|{digits}> : {amp.real:.3f}+{amp.imag:.4f}j => |{digits}|={np.abs(amp):.4f} => Prob={np.abs(amp)**2:.4f}")
+            elif amp.real >=0 and amp.imag <0:
+                print(f"|{digits}> : {amp.real:.4f}{amp.imag:.4f}j => |{digits}|={np.abs(amp):.4f} => Prob={np.abs(amp)**2:.4f}")
+            elif amp.real >=0 and amp.imag >=0:
+                print(f"|{digits}> : {amp.real:.4f}+{amp.imag:.4f}j => |{digits}|={np.abs(amp):.4f} => Prob={np.abs(amp)**2:.4f}")
+            # else:
+                # print(f"|{digits}> : {amp:.4f} => |{digits}|={np.abs(amp):.4f} => Prob={np.abs(amp)**2:.4f}")
+            # print(f"|{digits}>")
+
+def is_unitary(matrix, threshold=1e-6):
+    """ Checks if a matrix is unitary by verifying that U * U^dagger = I within a given threshold. 
+    """
+    identity = np.eye(matrix.shape[0])
+    product = matrix @ matrix.conj().T
+    return np.allclose(product, identity, atol=threshold)
 
 def create_maximally_entangled_state(dimension):
     """ Creates a maximally entangled state for the given dimension. 
@@ -46,6 +83,13 @@ def compare_quantum_states(qc1, qc2, threshold=1e-6):
     """ Compares the states of two quantum circuits and prints the basis states with amplitudes above threshold. 
     """
     return np.allclose(qc1.state, qc2.state, atol=threshold)
+
+def random_pure_state(dimension):
+    """ Generates a random pure quantum state of the given dimension. 
+    """
+    state = np.random.rand(dimension) + 1j * np.random.rand(dimension)
+    state /= np.linalg.norm(state)
+    return state
 
 def partial_trace_qudits(rho, trace_out, num_total_qudits, dim_qudit):
     """
