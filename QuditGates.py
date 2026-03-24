@@ -75,7 +75,17 @@ class QuditGates:
                 SWAP[output_index][input_index] = 1
         return SWAP
 
-    
+    def get_random_unitary(self):
+        """ Returns a random unitary matrix of size dim x dim. 
+        """
+        random_matrix = np.random.rand(self.dim, self.dim) + 1j * np.random.rand(self.dim, self.dim)
+        q, r = np.linalg.qr(random_matrix)
+        d = np.diagonal(r)
+        ph = d / np.abs(d)
+        q = q * ph
+        return q
+
+
     def create_Uencryption(self, number_S_qudits):
         operators = [self.get_X_gate(), self.get_Z_gate()]
         num_qudits = number_S_qudits + 1
