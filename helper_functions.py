@@ -1,4 +1,11 @@
 import numpy as np
+import string
+
+def vector_to_ket(vector):
+    """ Converts a state vector to a ket representation. 
+    For example, for a 2-qubit state vector of size 4, the ket representation would be a 4x1 column vector.
+    """
+    return vector.reshape(-1, 1)
 
 def print_matrix(matrix):
     for row in range(matrix.shape[0]):
@@ -39,3 +46,36 @@ def compare_quantum_states(qc1, qc2, threshold=1e-6):
     """ Compares the states of two quantum circuits and prints the basis states with amplitudes above threshold. 
     """
     return np.allclose(qc1.state, qc2.state, atol=threshold)
+
+def partial_trace_qudits(rho, trace_out, num_total_qudits, dim_qudit):
+    """
+    Computes the partial trace of a density matrix rho over the qudits specified in trace_out.
+    """
+
+    dim = dim_qudit ** num_total_qudits
+    assert rho.shape == (dim, dim)
+
+    # Reshape into tensor with 2N indices
+    rho_tensor = rho.reshape([dim_qudit] * (2 * num_total_qudits))
+
+    # Build einsum indices
+    letters = string.ascii_letters
+    bra = list(letters[:num_total_qudits])
+    ket = list(letters[num_total_qudits:2*num_total_qudits])
+
+    # For traced qudits, set bra and ket index equal
+    for q in trace_out:
+        ket[q] = bra[q]
+
+    einsum_str = ''.join(bra + ket) + '->'
+
+    # Remaining (non-traced) indices
+    remaining = [i for i in range(num_total_qudits) if i not in trace_out]
+    out_indices = [bra[i] for i in remaining] + [ket[i] for i in remaining]
+
+    einsum_str += ''.join(out_indices)
+
+    rho_reduced = np.einsum(einsum_str, rho_tensor)
+
+    dim_reduced = dim_qudit ** len(remaining)
+    return rho_reduced.reshape(dim_reduced, dim_reduced)
